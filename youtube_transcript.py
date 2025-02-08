@@ -14,11 +14,6 @@ def get_transcript(video_id):
         print(f"Error fetching transcript: {e}")
         return None
 
-def get_metadata(video_url):
-    with YoutubeDL() as ydl:
-        info = ydl.extract_info(video_url, download=False)
-        return info
-
 def segment_transcript(transcript):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     transcript_text = "\n".join([t["text"] for t in transcript])
@@ -27,17 +22,6 @@ def segment_transcript(transcript):
     # Return each segment with its start and end times
     return [{'start': transcript[i]['start'], 'end': transcript[i]['start'] + 500, 'text': segment}
             for i, segment in enumerate(segments)]
-
-def annotate_segments(segments):
-    # Use Hugging Face summarization model
-    summarizer = pipeline("summarization", model="t5-small", tokenizer="t5-small")
-
-    # Process each segment by summarizing it
-    annotated_segments = []
-    for segment in segments:
-        result = summarizer(segment["text"], max_length=100, min_length=20, do_sample=False)
-        annotated_segments.append(result[0]["summary_text"])
-    return annotated_segments
 
 def get_embeddings(segments):
     # Use SentenceTransformer for embeddings
@@ -122,7 +106,6 @@ def query_video_segments(conn, cursor, query, top_k=10):
     LIMIT %s;
     """, (query_embedding, top_k))
 
-
     results = cursor.fetchall()
     return results
 
@@ -152,7 +135,7 @@ if __name__ == "__main__":
     "https://www.youtube.com/watch?v=rrB13utjYV4",
     "https://www.youtube.com/watch?v=__iKSnQXe_o"]
   
-    process_videos(video_urls)
+    # process_videos(video_urls)
 
     # Query for a topic
     user_query = input("Enter your query: ")
