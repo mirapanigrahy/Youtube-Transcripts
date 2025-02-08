@@ -71,6 +71,27 @@ def setup_database():
 
     return conn, cursor
 
+# Function to process a list of video URLs
+def process_videos(video_urls):
+    for video_url in video_urls:
+        # Extract video ID from the URL
+        video_id = video_url.split("v=")[-1]  # For example, extract "v=XXXX" from the URL
+        print(f"Processing video: {video_id}")
+
+        # Get transcript and metadata
+        transcript = get_transcript(video_id)
+        if transcript:
+            # Segment the transcript
+            segments = segment_transcript(transcript)
+            
+            # Get embeddings for each segment
+            embeddings = get_embeddings(segments)
+            
+            # Insert the data into the database
+            store_embeddings(conn, cursor, video_id, segments, embeddings)
+        else:
+            print(f"Skipping video {video_id} due to missing transcript.")
+
 # Store embeddings in database
 def store_embeddings(conn, cursor, video_id, segments, embeddings):
     for i, (segment, embedding) in enumerate(zip(segments, embeddings)):
@@ -95,15 +116,15 @@ def query_video_segments(conn, cursor, query, top_k=10):
 
     # Use PGVector for similarity search, cast to vector type explicitly
     cursor.execute("""
-    SELECT id, video_id, start_time, end_time, segment, embedding <=> %s::vector AS similarity
+    SELECT DISTINCT ON (video_id) id, video_id, start_time, end_time, segment, embedding <=> %s::vector AS similarity
     FROM video_segments
-    ORDER BY similarity
+    ORDER BY video_id, similarity
     LIMIT %s;
     """, (query_embedding, top_k))
 
+
     results = cursor.fetchall()
     return results
-
 
 # Main execution logic
 if __name__ == "__main__":
@@ -116,17 +137,22 @@ if __name__ == "__main__":
     # Database connection
     conn, cursor = setup_database()
 
-    # Example video ID
-    video_id = "9vNdFpjEmXw"
-    transcript = get_transcript(video_id)
-
-    if transcript:
-        segments = segment_transcript(transcript)
-        annotated_segments = annotate_segments(segments)
-        embeddings = get_embeddings(segments)
-
-        # Store embeddings in database
-        store_embeddings(conn, cursor, video_id, segments, embeddings)
+    # Add videos to database
+    video_urls = ["https://www.youtube.com/watch?v=rL8X2mlNHPM",
+    "https://www.youtube.com/watch?v=DuDz6B4cqVc",
+    "https://www.youtube.com/watch?v=ZoqMiFKspAA",
+    "https://www.youtube.com/watch?v=HjneAhCy2N4",
+    "https://www.youtube.com/watch?v=6-tKOHICqrI",
+    "https://www.youtube.com/watch?v=26QPDBe-NB8",
+    "https://www.youtube.com/watch?v=pVzRTmdd9j0",
+    "https://www.youtube.com/watch?v=GjNp0bBrjmU",
+    "https://www.youtube.com/watch?v=ACsLvXuaKxw",
+    "https://www.youtube.com/watch?v=O753uuutqH8",
+    "https://www.youtube.com/watch?v=iIxZrYzJJ7I",
+    "https://www.youtube.com/watch?v=rrB13utjYV4",
+    "https://www.youtube.com/watch?v=__iKSnQXe_o"]
+  
+    process_videos(video_urls)
 
     # Query for a topic
     user_query = input("Enter your query: ")
@@ -140,5 +166,6 @@ if __name__ == "__main__":
         print("------")
 
     # Close database connection
-    cursor.close()
+    cursor.close()  # Close cursor after all database operations
+    conn.close()  # Close the connection after all operations
 
